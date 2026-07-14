@@ -1,0 +1,21 @@
+# Core Computer Vision & Deep Learning
+opencv-python-headless>=4.6.0
+torch>=2.0.0
+torchvision>=0.15.0
+ultralytics>=8.0.0      # YOLO models
+filterpy>=1.4.5         # SORT/DeepSORT tracking dependencies
+scipy>=1.8.0
+numpy>=1.22.0
+
+# API & Streaming
+fastapi>=0.80.0
+uvicorn>=0.17.0
+pydantic>=2.0.0
+python-dotenv>=0.20.0
+pyyaml>=6.0
+
+# Development, Testing & Code Quality
+pytest>=7.0.0
+pytest-cov>=3.0.0
+black>=22.0.0
+ruff>=0.0.200
