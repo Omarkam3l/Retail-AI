@@ -98,7 +98,7 @@ def draw_hud(frame, fps, frame_idx, num_persons, num_objects, profiler):
                 cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 0), 1)
 
     # Stage latencies
-    avg = profiler.get_averages()
+    avg = profiler.get_summary()
     y = 125
     for stage in ["detection", "tracking", "association", "behavior"]:
         if stage in avg:
@@ -139,7 +139,7 @@ def main():
     print("[4/6] Loading behavior rules...")
     behavior = BehaviorEngine()
     behavior.register_rule(PocketConcealmentRule())
-    behavior.register_rule(LoiteringRule(threshold_seconds=20.0))
+    behavior.register_rule(LoiteringRule(loiter_threshold_seconds=20.0))
 
     print("[5/6] Configuring risk & alert engines...")
     risk_engine = RiskAssessmentEngine()
@@ -251,7 +251,7 @@ def main():
     print(f"  Frames Processed: {frame_idx}")
     print(f"  Total Alerts:     {total_alerts}")
 
-    avg = orchestrator.profiler.get_averages()
+    avg = orchestrator.profiler.get_summary()
     if avg:
         print(f"\n  Average Stage Latencies:")
         for stage, ms in avg.items():
