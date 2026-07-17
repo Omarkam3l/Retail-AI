@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  retail-ai-pipeline:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: retail_ai_surveillance
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LOG_LEVEL=INFO
+    volumes:
+      - ./configs:/app/configs
+      - ./data:/app/data
+    restart: unless-stopped
