@@ -9,6 +9,7 @@ class PocketConcealmentRule(BehaviorRule):
 
     def __init__(self, max_sequence_gap_seconds: float = 10.0) -> None:
         self._max_gap_ms = max_sequence_gap_seconds * 1000.0
+        self._flagged_object_ids = set()
 
     def evaluate(
         self,
@@ -22,6 +23,9 @@ class PocketConcealmentRule(BehaviorRule):
         disappear_events = [e for e in event_history if e.event_type == EventType.PRODUCT_DISAPPEARED]
 
         for pick in pick_events:
+            if pick.object_track_id in self._flagged_object_ids:
+                continue
+
             # Find a matching disappearance that happened after the pick
             matching_disappear = next(
                 (d for d in disappear_events 
@@ -32,6 +36,7 @@ class PocketConcealmentRule(BehaviorRule):
             )
 
             if matching_disappear:
+                self._flagged_object_ids.add(pick.object_track_id)
                 # Convert AssociationEvents to PrimitiveEvents for evidence list
                 evidence = [
                     PrimitiveEvent(

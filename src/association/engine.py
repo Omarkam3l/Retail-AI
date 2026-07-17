@@ -29,6 +29,7 @@ class ObjectAssociationEngine(BaseAssociationEngine):
         
         # Public events queue containing events generated in the last frame process
         self.events: List[AssociationEvent] = []
+        self.mock_timestamp_ms: Optional[float] = None
 
     def associate(
         self,
@@ -37,7 +38,11 @@ class ObjectAssociationEngine(BaseAssociationEngine):
         objects: List[DetectedObject]
     ) -> Dict[int, Dict[int, AssociationState]]:
         """Main coordinator pipeline matching entities, managing states, and returning records."""
-        timestamp_ms = time_ms = int(np.round(np.datetime64('now').astype(int) / 1000.0))  # simple timestamp
+        if self.mock_timestamp_ms is not None:
+            timestamp_ms = self.mock_timestamp_ms
+        else:
+            import time
+            timestamp_ms = time.time() * 1000.0
         
         # 1. Run Hungarian assignment to find active pairs
         matches = self._matcher.match(persons, objects)

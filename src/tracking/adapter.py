@@ -163,15 +163,10 @@ class ByteTrackAdapter(BaseTracker):
         tracked_objects: List[DetectedObject] = []
 
         for tid, meta in self._manager.get_active_tracks().items():
-            # Retrieve original label index from detections if matching
-            # For simplicity, we can assume ClassLabel based on index
-            # Wait, let's look at how we mapped:
-            # index 0 is PERSON.
-            # other indices correspond to bags or shelf items.
-            if tid in self._tracker.tracked_stracks:
-                # Retrieve the original cls value from STrack
-                strack = next((x for x in self._tracker.tracked_stracks if x.track_id == tid), None)
-                cls_val = int(strack.cls) if strack is not None else 0
+            # Retrieve the original cls value from STrack
+            strack = next((x for x in self._tracker.tracked_stracks if x.track_id == tid), None)
+            if strack is not None:
+                cls_val = int(strack.cls)
             else:
                 cls_val = 0
 
