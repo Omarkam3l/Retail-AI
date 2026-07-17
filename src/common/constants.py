@@ -1,0 +1,19 @@
+# Frame processing rate
+TARGET_FPS = 15
+FRAME_TIME_MS = 1000.0 / TARGET_FPS
+
+# Sliding temporal memory windows
+SLIDING_WINDOW_FRAMES = 300  # 20 seconds at 15 FPS
+COOLDOWN_PERIOD_SECONDS = 60
+LOCKOUT_PERIOD_SECONDS = 120
+
+# Edge video loop generation
+ALERT_PRE_EVENT_FRAMES = 30
+ALERT_POST_EVENT_FRAMES = 15
+ALERT_TOTAL_FRAMES = ALERT_PRE_EVENT_FRAMES + ALERT_POST_EVENT_FRAMES
+
+# Spatial-temporal behavior defaults
+DEFAULT_GRAB_DISTANCE = 0.08      # Normalized frame size
+DEFAULT_POCKET_DISTANCE = 0.12    # Dynamic height ratio
+DEFAULT_BAG_IOU_OVERLAP = 0.40
+DEFAULT_LOITER_SECONDS = 180
