@@ -35,6 +35,13 @@ class ProductRecognitionEngine:
         self._tracker = PerformanceTracker()
         self._threshold = similarity_threshold
 
+    def initialize(self) -> None:
+        """Initializes the underlying model weights and hardware resources."""
+        if hasattr(self._extractor, "_model") and hasattr(self._extractor._model, "initialize"):
+            self._extractor._model.initialize()
+        elif hasattr(self._extractor, "initialize"):
+            self._extractor.initialize()
+
     def process_object(
         self,
         frame: np.ndarray,

@@ -146,6 +146,27 @@ def main():
     dispatcher = MockNotificationDispatcher()
     alert_engine = AlertEvidenceEngine(dispatcher=dispatcher)
 
+    # Product Recognition Engine Integration
+    print("[5.5/6] Loading product recognition model...")
+    try:
+        from src.product_recognition.embedding_model import DINOv2EmbeddingModel
+        from src.product_recognition.feature_extractor import FeatureExtractor
+        from src.product_recognition.catalog import ProductCatalog
+        from src.product_recognition.similarity import SimilarityEngine
+        from src.product_recognition.matcher import ProductMatcher
+        from src.product_recognition.recognition_engine import ProductRecognitionEngine
+        
+        emb_model = DINOv2EmbeddingModel(model_name="dinov2_vits14", device=args.device)
+        extractor = FeatureExtractor(emb_model)
+        catalog = ProductCatalog()
+        sim_engine = SimilarityEngine(catalog)
+        matcher = ProductMatcher(sim_engine)
+        recognition_engine = ProductRecognitionEngine(extractor, matcher)
+        print("  ✅ Product Recognition Engine loaded successfully.")
+    except Exception as e:
+        print(f"  ⚠️  Product Recognition Engine fallback (disabled): {e}")
+        recognition_engine = None
+
     print("[6/6] Assembling pipeline orchestrator...")
     orchestrator = PipelineOrchestrator(
         camera_id="demo_cam",
@@ -154,7 +175,8 @@ def main():
         association_engine=association,
         behavior_engine=behavior,
         risk_engine=risk_engine,
-        alert_engine=alert_engine
+        alert_engine=alert_engine,
+        recognition_engine=recognition_engine
     )
     orchestrator.initialize()
     print("Pipeline ready!\n")

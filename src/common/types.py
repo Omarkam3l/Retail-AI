@@ -73,6 +73,11 @@ class DetectedObject:
     bbox: BoundingBox
     confidence: float
     track_id: Optional[int] = None
+    sku: Optional[str] = None
+    brand: Optional[str] = None
+    category: Optional[str] = None
+    similarity: Optional[float] = None
+    rec_confidence: Optional[float] = None
 
 @dataclass(frozen=True)
 class TrackedPerson:

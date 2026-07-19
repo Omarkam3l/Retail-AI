@@ -28,6 +28,11 @@ try:
 except ImportError:
     BaseAlertEngine = None
 
+try:
+    from src.product_recognition.recognition_engine import ProductRecognitionEngine
+except ImportError:
+    ProductRecognitionEngine = None
+
 logger = logging.getLogger("PipelineOrchestrator")
 
 class PipelineOrchestrator(BaseInferencePipeline):
@@ -43,13 +48,15 @@ class PipelineOrchestrator(BaseInferencePipeline):
         event_bus: Optional[EventBus] = None,
         profiler: Optional[PipelineProfiler] = None,
         risk_engine: Optional[BaseRiskEngine] = None,
-        alert_engine: Optional[BaseAlertEngine] = None
+        alert_engine: Optional[BaseAlertEngine] = None,
+        recognition_engine: Optional["ProductRecognitionEngine"] = None
     ) -> None:
         self.camera_id = camera_id
         self._detector = detector
         self._tracker = tracker
         self._association_engine = association_engine
         self._behavior_engine = behavior_engine
+        self._recognition_engine = recognition_engine
         
         self.event_bus = event_bus or EventBus()
         self.profiler = profiler or PipelineProfiler()
@@ -61,6 +68,8 @@ class PipelineOrchestrator(BaseInferencePipeline):
         logger.info("Initializing PipelineOrchestrator components...")
         self._detector.initialize()
         self._tracker.initialize()
+        if self._recognition_engine is not None and hasattr(self._recognition_engine, "initialize"):
+            self._recognition_engine.initialize()
         if self._risk_engine is not None and hasattr(self._risk_engine, "initialize"):
             self._risk_engine.initialize()
         if self._alert_engine is not None and hasattr(self._alert_engine, "initialize"):
@@ -116,6 +125,39 @@ class PipelineOrchestrator(BaseInferencePipeline):
             except Exception as e:
                 logger.error(f"Tracking stage failure: {e}", exc_info=True)
 
+            # 2.5 Product Recognition Stage
+            if self._recognition_engine is not None and tracked_objects:
+                try:
+                    with tracer.start_as_current_span("recognition_stage"):
+                        start = time.perf_counter()
+                        enriched_objects = []
+                        for obj in tracked_objects:
+                            try:
+                                track_id = obj.track_id if obj.track_id is not None else 0
+                                res = self._recognition_engine.process_object(frame, obj.bbox, track_id, obj.confidence)
+                                enriched_obj = DetectedObject(
+                                    class_label=obj.class_label,
+                                    bbox=obj.bbox,
+                                    confidence=obj.confidence,
+                                    track_id=obj.track_id,
+                                    sku=res.sku,
+                                    brand=res.brand,
+                                    category=res.category,
+                                    similarity=res.similarity,
+                                    rec_confidence=res.confidence
+                                )
+                                enriched_objects.append(enriched_obj)
+                            except Exception as e:
+                                logger.error(f"Product recognition failure for object: {e}", exc_info=True)
+                                enriched_objects.append(obj)
+                        tracked_objects = enriched_objects
+                        dur = (time.perf_counter() - start) * 1000.0
+                        ctx.record_stage_latency("recognition", dur)
+                        self.profiler.record_latency("recognition", dur)
+                        STAGE_LATENCY.labels(camera_id=self.camera_id, stage_name="recognition").observe(dur)
+                except Exception as e:
+                    logger.error(f"Product recognition stage failure: {e}", exc_info=True)
+
             # Build FrameMetadata object
             metadata = FrameMetadata(
                 camera_id=self.camera_id,
@@ -132,7 +174,27 @@ class PipelineOrchestrator(BaseInferencePipeline):
                     start = time.perf_counter()
                     if hasattr(self._association_engine, "mock_timestamp_ms"):
                         self._association_engine.mock_timestamp_ms = timestamp_ms
-                    associations = self._association_engine.associate(frame, tracked_persons, tracked_objects)
+                    
+                    # Extract embeddings from recognition engine's cache if available
+                    object_embeddings = {}
+                    if self._recognition_engine is not None:
+                        for obj in tracked_objects:
+                            if obj.track_id is not None:
+                                emb = self._recognition_engine._cache.get(f"track_{obj.track_id}")
+                                if emb is not None:
+                                    object_embeddings[obj.track_id] = emb
+                    
+                    # Check if associate accepts object_embeddings parameter for backward compatibility
+                    import inspect
+                    sig = inspect.signature(self._association_engine.associate)
+                    if "object_embeddings" in sig.parameters:
+                        associations = self._association_engine.associate(
+                            frame, tracked_persons, tracked_objects, object_embeddings=object_embeddings
+                        )
+                    else:
+                        associations = self._association_engine.associate(
+                            frame, tracked_persons, tracked_objects
+                        )
                     dur = (time.perf_counter() - start) * 1000.0
                     ctx.record_stage_latency("association", dur)
                     self.profiler.record_latency("association", dur)
@@ -229,6 +291,8 @@ class PipelineOrchestrator(BaseInferencePipeline):
             self._association_engine.shutdown()
         if hasattr(self._behavior_engine, "shutdown"):
             self._behavior_engine.shutdown()
+        if self._recognition_engine is not None and hasattr(self._recognition_engine, "shutdown"):
+            self._recognition_engine.shutdown()
         if self._risk_engine is not None and hasattr(self._risk_engine, "shutdown"):
             self._risk_engine.shutdown()
         if self._alert_engine is not None and hasattr(self._alert_engine, "shutdown"):
