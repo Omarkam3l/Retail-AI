@@ -12,6 +12,7 @@ This platform is specifically designed as a cost-effective, modular, and customi
 5. **Streamlit Live Dashboard**: Modern, dark-themed dashboard to monitor live camera streams, view metrics, track alerts, and adjust system settings.
 6. **Robust Recording System**: Automatically captures JPEG snapshots and MP4 video clips with pre- and post-event windows around generated alerts.
 7. **SQLite Storage Layer**: Thread-safe WAL-enabled local database with automated migrations tracking cameras, alerts, events, system logs, and benchmark runs.
+8. **Product Recognition Engine**: Integrates DINOv2 visual features, cosine similarity, caching, and custom confidence metrics to classify bounding box crops into specific store products/SKUs.
 
 ---
 
@@ -34,6 +35,12 @@ Retail-AI/
 │   ├── phase1/             # System specifications and product requirements
 │   ├── phase2/             # Design specs and prototyping
 │   ├── phase3/             # Deployments & production plans
+│   ├── phase4/             # Product Recognition details & pipeline models
+│   │   ├── product_recognition.md
+│   │   ├── embedding_pipeline.md
+│   │   ├── similarity_search.md
+│   │   ├── catalog_design.md
+│   │   └── benchmark_results.md
 │   ├── api_reference.md    # FastAPI REST/WebSocket API endpoints
 │   ├── dashboard_guide.md  # Detailed Streamlit page functions and features
 │   ├── deployment_guide.md # Local and production server setup instructions
@@ -54,6 +61,7 @@ Retail-AI/
 │   ├── inference/          # Pipeline orchestrator, event bus, profiler
 │   ├── ingestion/          # Video decoder, frame buffers, sampler
 │   ├── monitoring/         # CPU/GPU resource collection monitor
+│   ├── product_recognition/# Embedding catalog, DINOv2 model, similarity, matcher, caches
 │   ├── recording/          # Video writer, snapshot/clip managers, retention policy
 │   ├── risk/               # Risk collector, state machine, suppression, scoring
 │   └── tracking/           # ByteTrack adapter and tracking manager
@@ -64,6 +72,14 @@ Retail-AI/
 │   ├── test_recording.py   # Clips, snapshots, and file retention tests
 │   ├── test_websocket.py   # WebSocket event streaming manager tests
 │   ├── test_monitoring.py  # System resource monitor testing
+│   ├── test_catalog.py     # Product Catalog database operations
+│   ├── test_embeddings.py  # Preprocessor and feature extraction tests
+│   ├── test_similarity.py  # Cosine similarity vector matching
+│   ├── test_matching.py    # Match ranking and threshold filtering
+│   ├── test_unknown_detection.py # Unknown product logger
+│   ├── test_cache.py       # Embedding LRU cache operations
+│   ├── test_recognition_engine.py # Overall recognition flow coordinator
+│   ├── test_pipeline_integration_product.py # Backward-compatible pipeline checks
 │   └── ...                 # Component-specific unit and integration tests
 │
 ├── Dockerfile              # Production multi-service Docker image builder
@@ -89,9 +105,9 @@ Launch the entire system (FastAPI API + Streamlit Dashboard) with a single comma
 docker compose up --build
 ```
 Access the services at:
+- **Web Dashboard**: [http://localhost:8501](http://localhost:8501)
 - **FastAPI API**: [http://localhost:8000](http://localhost:8000)
 - **API Swagger Documentation**: [http://localhost:8000/docs](http://localhost:8000/docs)
-- **Live Streamlit Dashboard**: [http://localhost:8501](http://localhost:8501)
 
 ### Step 3: Run Locally (Development)
 If running directly on the host machine:
