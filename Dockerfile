@@ -1,6 +1,6 @@
 FROM python:3.12-slim
 
-# Install system dependencies for OpenCV and video handling
+# Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     ffmpeg \
@@ -8,6 +8,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxext6 \
     libgl1-mesa-glx \
     libglib2.0-0 \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -16,14 +17,18 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy source and configurations
-COPY src/ ./src
-COPY configs/ ./configs
+# Copy source, dashboard, configs, and scripts
+COPY src/ ./src/
+COPY dashboard/ ./dashboard/
+COPY configs/ ./configs/
+COPY scripts/ ./scripts/
+COPY demo/ ./demo/
 
-# Expose metrics port
-EXPOSE 8000
+# Create data directories
+RUN mkdir -p data/clips data/snapshots data/uploads logs
+
+# Expose ports: API (8000) + Dashboard (8501)
+EXPOSE 8000 8501
 
 ENV PYTHONPATH=/app
-
-# Run mock or camera pipeline driver (to be customized by deployment script)
-CMD ["python", "-c", "from src.common.observability import start_metrics_server; start_metrics_server(8000); import time; time.sleep(3600)"]
+ENV PYTHONUNBUFFERED=1

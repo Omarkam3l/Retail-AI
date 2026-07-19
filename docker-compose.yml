@@ -1,17 +1,43 @@
 version: '3.8'
 
 services:
-  retail-ai-pipeline:
+  api:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: retail_ai_surveillance
+    container_name: retail_ai_api
     ports:
       - "8000:8000"
     environment:
       - PYTHONUNBUFFERED=1
       - LOG_LEVEL=INFO
+      - RETAIL_AI_API_KEY=retail-ai-dev-key-2024
     volumes:
       - ./configs:/app/configs
       - ./data:/app/data
+      - ./logs:/app/logs
+    command: uvicorn src.api.application:app --host 0.0.0.0 --port 8000 --reload
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: retail_ai_dashboard
+    ports:
+      - "8501:8501"
+    environment:
+      - API_BASE_URL=http://api:8000
+      - RETAIL_AI_API_KEY=retail-ai-dev-key-2024
+    volumes:
+      - ./data:/app/data
+    command: streamlit run dashboard/app.py --server.port 8501 --server.address 0.0.0.0 --server.headless true
+    depends_on:
+      api:
+        condition: service_healthy
     restart: unless-stopped

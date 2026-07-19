@@ -1,0 +1,42 @@
+# Retail AI Surveillance Platform — Sample Configuration
+# Copy to configs/default.yaml and customize
+
+api:
+  host: "0.0.0.0"
+  port: 8000
+  api_key: "retail-ai-dev-key-2024"
+  cors_origins:
+    - "*"
+
+detection:
+  model_path: "yolo11s.pt"
+  confidence_threshold: 0.35
+  device: "auto"      # auto | cpu | cuda
+  fp16: true
+
+tracking:
+  track_threshold: 0.25
+  max_age: 30
+
+behavior:
+  loiter_threshold_seconds: 20.0
+  concealment_gap_seconds: 10.0
+
+risk:
+  medium_threshold: 0.5
+  high_threshold: 0.7
+
+recording:
+  pre_event_frames: 90    # ~3 seconds at 30fps
+  post_event_frames: 60   # ~2 seconds at 30fps
+  retention_hours: 72
+  max_storage_gb: 10
+
+alerts:
+  cooldown_seconds: 60
+  duplicate_window_seconds: 30
+
+dashboard:
+  port: 8501
+  theme: "dark"
+  auto_refresh_seconds: 5
