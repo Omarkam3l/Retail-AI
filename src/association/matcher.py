@@ -24,6 +24,27 @@ def calculate_iou(box1: BoundingBox, box2: BoundingBox) -> float:
     return intersection_area / union_area
 
 
+def calculate_overlap_ratio(box1: BoundingBox, box2: BoundingBox) -> float:
+    """Calculates Overlap Coefficient (Intersection over Minimum Area) between two bounding boxes."""
+    x_left = max(box1.x_min, box2.x_min)
+    y_top = max(box1.y_min, box2.y_min)
+    x_right = min(box1.x_max, box2.x_max)
+    y_bottom = min(box1.y_max, box2.y_max)
+
+    if x_right < x_left or y_bottom < y_top:
+        return 0.0
+
+    intersection_area = (x_right - x_left) * (y_bottom - y_top)
+    box1_area = box1.width * box1.height
+    box2_area = box2.width * box2.height
+    
+    min_area = min(box1_area, box2_area)
+
+    if min_area <= 0.0:
+        return 0.0
+    return intersection_area / min_area
+
+
 class SpatialMatcher:
     """Evaluates spatial relationships and resolves overlap conflicts using Hungarian matching."""
 
@@ -56,8 +77,8 @@ class SpatialMatcher:
                     # Too far away, keep cost high (gated)
                     continue
 
-                # Compute IoU overlap
-                iou = calculate_iou(person.bbox, obj.bbox)
+                # Compute overlap ratio (overlap coefficient)
+                iou = calculate_overlap_ratio(person.bbox, obj.bbox)
                 
                 # Cost is lower for closer proximity and higher overlap
                 cost = (1.0 - self._iou_weight) * dist + self._iou_weight * (1.0 - iou)
