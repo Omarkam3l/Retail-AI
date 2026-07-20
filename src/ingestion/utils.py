@@ -51,32 +51,97 @@ def resize_letterbox(
     return padded_img, r, (left, top)
 
 
+def draw_rounded_rect(
+    image: np.ndarray,
+    pt1: Tuple[int, int],
+    pt2: Tuple[int, int],
+    color: Tuple[int, int, int],
+    thickness: int = 2,
+    radius: int = 8
+) -> None:
+    """Draws an anti-aliased rounded rectangle."""
+    x1, y1 = pt1
+    x2, y2 = pt2
+    w = x2 - x1
+    h = y2 - y1
+    radius = min(radius, abs(w) // 2, abs(h) // 2)
+
+    if radius <= 0:
+        cv2.rectangle(image, pt1, pt2, color, thickness, lineType=cv2.LINE_AA)
+        return
+
+    # Draw lines
+    cv2.line(image, (x1 + radius, y1), (x2 - radius, y1), color, thickness, lineType=cv2.LINE_AA)
+    cv2.line(image, (x1 + radius, y2), (x2 - radius, y2), color, thickness, lineType=cv2.LINE_AA)
+    cv2.line(image, (x1, y1 + radius), (x1, y2 - radius), color, thickness, lineType=cv2.LINE_AA)
+    cv2.line(image, (x2, y1 + radius), (x2, y2 - radius), color, thickness, lineType=cv2.LINE_AA)
+
+    # Draw arcs
+    cv2.ellipse(image, (x1 + radius, y1 + radius), (radius, radius), 180, 0, 90, color, thickness, lineType=cv2.LINE_AA)
+    cv2.ellipse(image, (x2 - radius, y1 + radius), (radius, radius), 270, 0, 90, color, thickness, lineType=cv2.LINE_AA)
+    cv2.ellipse(image, (x2 - radius, y2 - radius), (radius, radius), 0, 0, 90, color, thickness, lineType=cv2.LINE_AA)
+    cv2.ellipse(image, (x1 + radius, y2 - radius), (radius, radius), 90, 0, 90, color, thickness, lineType=cv2.LINE_AA)
+
+
+def draw_rounded_rect_filled(
+    image: np.ndarray,
+    pt1: Tuple[int, int],
+    pt2: Tuple[int, int],
+    color: Tuple[int, int, int],
+    radius: int = 5
+) -> None:
+    """Draws a filled rounded rectangle (pill style) in BGR space."""
+    x1, y1 = pt1
+    x2, y2 = pt2
+    w = x2 - x1
+    h = y2 - y1
+    radius = min(radius, abs(w) // 2, abs(h) // 2)
+    
+    if radius <= 0:
+        cv2.rectangle(image, pt1, pt2, color, -1)
+        return
+
+    cv2.rectangle(image, (x1 + radius, y1), (x2 - radius, y2), color, -1)
+    cv2.rectangle(image, (x1, y1 + radius), (x2, y2 - radius), color, -1)
+    
+    cv2.circle(image, (x1 + radius, y1 + radius), radius, color, -1, lineType=cv2.LINE_AA)
+    cv2.circle(image, (x2 - radius, y1 + radius), radius, color, -1, lineType=cv2.LINE_AA)
+    cv2.circle(image, (x1 + radius, y2 - radius), radius, color, -1, lineType=cv2.LINE_AA)
+    cv2.circle(image, (x2 - radius, y2 - radius), radius, color, -1, lineType=cv2.LINE_AA)
+
+
 def draw_bounding_box(
     image: np.ndarray,
     bbox: BoundingBox,
     label: str,
     color: Tuple[int, int, int] = (0, 255, 0),
-    thickness: int = 2
+    thickness: int = 2,
+    confidence: float = 1.0
 ) -> None:
-    """Draws a 2D bounding box and text label directly onto the image."""
+    """Draws a 2D rounded bounding box, label, and confidence bar directly onto the image."""
     h, w = image.shape[:2]
-    # Denormalize coordinates if they are between [0, 1]
+    # Denormalize coordinates
     x_min = int(bbox.x_min * w) if bbox.x_min <= 1.0 else int(bbox.x_min)
     y_min = int(bbox.y_min * h) if bbox.y_min <= 1.0 else int(bbox.y_min)
     x_max = int(bbox.x_max * w) if bbox.x_max <= 1.0 else int(bbox.x_max)
     y_max = int(bbox.y_max * h) if bbox.y_max <= 1.0 else int(bbox.y_max)
 
-    cv2.rectangle(image, (x_min, y_min), (x_max, y_max), color, thickness)
+    # Draw rounded bounding box
+    draw_rounded_rect(image, (x_min, y_min), (x_max, y_max), color, thickness, radius=8)
+    
+    # Draw confidence bar on the side
+    bar_h = int((y_max - y_min) * confidence)
+    cv2.rectangle(image, (x_min - 6, y_max - bar_h), (x_min - 2, y_max), color, -1)
     
     # Draw label box
     tf = max(thickness - 1, 1)
-    label_size = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, tf)
+    label_size = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.45, tf)
     lbl_w, lbl_h = label_size[0]
     
     # Draw label background
-    cv2.rectangle(image, (x_min, y_min - lbl_h - 4), (x_min + lbl_w, y_min), color, -1)
+    draw_rounded_rect_filled(image, (x_min, y_min - lbl_h - 6), (x_min + lbl_w + 8, y_min), color, radius=4)
     cv2.putText(
-        image, label, (x_min, y_min - 2), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), tf, cv2.LINE_AA
+        image, label, (x_min + 4, y_min - 4), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), tf, cv2.LINE_AA
     )
 
 

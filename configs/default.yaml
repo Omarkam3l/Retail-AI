@@ -1,0 +1,28 @@
+api:
+  host: 0.0.0.0
+  port: 8000
+  api_key: retail-ai-dev-key-2024
+  cors_origins:
+  - '*'
+detection:
+  model_path: yolo11s.pt
+  confidence_threshold: 0.30
+  device: cuda
+  fp16: true
+tracking:
+  track_threshold: 0.25
+  max_age: 45
+behavior:
+  loiter_threshold_seconds: 20.0
+  concealment_gap_seconds: 10.0
+risk:
+  medium_threshold: 0.40
+  high_threshold: 0.75
+recording:
+  pre_event_frames: 90
+  post_event_frames: 60
+  retention_hours: 72
+  max_storage_gb: 10
+dashboard:
+  port: 8501
+  theme: dark
