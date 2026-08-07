@@ -82,6 +82,23 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Limit execution to a maximum number of video frames."
     )
+    parser.add_argument(
+        "--enable-vlm-review",
+        action="store_true",
+        help="Enable secondary NVIDIA VLM visual verification stage for suspicious events."
+    )
+    parser.add_argument(
+        "--vlm-model",
+        type=str,
+        default=os.getenv("NVIDIA_VLM_MODEL", "nvidia/neva-22b"),
+        help="NVIDIA VLM model name."
+    )
+    parser.add_argument(
+        "--vlm-base-url",
+        type=str,
+        default=os.getenv("NVIDIA_VLM_BASE_URL", "https://integrate.api.nvidia.com/v1"),
+        help="Base URL for NVIDIA VLM API endpoint."
+    )
     return parser.parse_args()
 
 
@@ -131,6 +148,14 @@ def main() -> None:
     risk_engine = RiskAssessmentEngine()
     alert_engine = AlertEvidenceEngine()
 
+    vlm_reviewer = None
+    if args.enable_vlm_review:
+        from src.vlm.client import NvidiaVLMClient
+        from src.vlm.reviewer import RetailVLMEventReviewer
+        vlm_client = NvidiaVLMClient(model=args.vlm_model, base_url=args.vlm_base_url)
+        vlm_reviewer = RetailVLMEventReviewer(client=vlm_client)
+        print(f"Enabled NVIDIA VLM Reviewer (Model: {args.vlm_model})")
+
     orchestrator = PipelineOrchestrator(
         camera_id="diagnostics_cam",
         detector=detector,
@@ -138,7 +163,8 @@ def main() -> None:
         association_engine=association,
         behavior_engine=behavior,
         risk_engine=risk_engine,
-        alert_engine=alert_engine
+        alert_engine=alert_engine,
+        vlm_reviewer=vlm_reviewer
     )
     orchestrator.initialize()
 

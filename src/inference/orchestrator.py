@@ -33,6 +33,13 @@ try:
 except ImportError:
     ProductRecognitionEngine = None
 
+try:
+    from src.vlm.reviewer import RetailVLMEventReviewer
+    from src.vlm.types import VLMReviewRequest
+except ImportError:
+    RetailVLMEventReviewer = None
+    VLMReviewRequest = None
+
 logger = logging.getLogger("PipelineOrchestrator")
 
 class PipelineOrchestrator(BaseInferencePipeline):
@@ -49,7 +56,8 @@ class PipelineOrchestrator(BaseInferencePipeline):
         profiler: Optional[PipelineProfiler] = None,
         risk_engine: Optional[BaseRiskEngine] = None,
         alert_engine: Optional[BaseAlertEngine] = None,
-        recognition_engine: Optional["ProductRecognitionEngine"] = None
+        recognition_engine: Optional["ProductRecognitionEngine"] = None,
+        vlm_reviewer: Optional["RetailVLMEventReviewer"] = None
     ) -> None:
         self.camera_id = camera_id
         self._detector = detector
@@ -57,6 +65,7 @@ class PipelineOrchestrator(BaseInferencePipeline):
         self._association_engine = association_engine
         self._behavior_engine = behavior_engine
         self._recognition_engine = recognition_engine
+        self._vlm_reviewer = vlm_reviewer
         
         self.event_bus = event_bus or EventBus()
         self.profiler = profiler or PipelineProfiler()
@@ -74,6 +83,8 @@ class PipelineOrchestrator(BaseInferencePipeline):
             self._risk_engine.initialize()
         if self._alert_engine is not None and hasattr(self._alert_engine, "initialize"):
             self._alert_engine.initialize()
+        if self._vlm_reviewer is not None and hasattr(self._vlm_reviewer, "initialize"):
+            self._vlm_reviewer.initialize()
         self._initialized = True
         logger.info("PipelineOrchestrator successfully initialized.")
 
@@ -228,6 +239,36 @@ class PipelineOrchestrator(BaseInferencePipeline):
             for flag in behavior_flags:
                 self.event_bus.publish("behavior_flag", flag)
 
+            # 4.5 VLM Review Stage (Event-triggered after behavior analysis and before risk scoring)
+            vlm_assessments = {}
+            if self._vlm_reviewer is not None and behavior_flags:
+                try:
+                    with tracer.start_as_current_span("vlm_review_stage"):
+                        start = time.perf_counter()
+                        for flag in behavior_flags:
+                            target_person = next((p for p in tracked_persons if p.track_id == flag.track_id), None)
+                            if target_person:
+                                b_type = getattr(flag, "behavior_type", getattr(flag, "rule_id", "suspicious_event"))
+                                req = VLMReviewRequest(
+                                    event_id=f"f{frame_index}_t{flag.track_id}_{b_type}",
+                                    track_id=flag.track_id,
+                                    behavior_flag=b_type,
+                                    timestamp_ms=timestamp_ms,
+                                    frame=frame,
+                                    bbox=target_person.bbox
+                                )
+                                assessment = self._vlm_reviewer.review(req)
+                                if flag.track_id not in vlm_assessments:
+                                    vlm_assessments[flag.track_id] = []
+                                vlm_assessments[flag.track_id].append(assessment)
+                                self.event_bus.publish("vlm_assessment_event", assessment)
+                        dur = (time.perf_counter() - start) * 1000.0
+                        ctx.record_stage_latency("vlm_review", dur)
+                        self.profiler.record_latency("vlm_review", dur)
+                        STAGE_LATENCY.labels(camera_id=self.camera_id, stage_name="vlm_review").observe(dur)
+                except Exception as e:
+                    logger.error(f"VLM review stage failure: {e}", exc_info=True)
+
             # 5. Risk Assessment Stage (Optional Integration)
             risk_scores: Dict[int, float] = {}
             risk_events = []
@@ -297,6 +338,8 @@ class PipelineOrchestrator(BaseInferencePipeline):
             self._risk_engine.shutdown()
         if self._alert_engine is not None and hasattr(self._alert_engine, "shutdown"):
             self._alert_engine.shutdown()
+        if self._vlm_reviewer is not None and hasattr(self._vlm_reviewer, "shutdown"):
+            self._vlm_reviewer.shutdown()
         self.profiler.reset()
         self._initialized = False
         logger.info("PipelineOrchestrator shutdown complete.")
